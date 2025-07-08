@@ -13,7 +13,7 @@ mysql:
   # MySQL 用户名(建议授权最小权限集)
   username: fastgo
   # MySQL 用户密码
-  password: fastgo1234
+  password: hfb1234
   # fastgo 系统所用的数据库名
   database: fastgo
   # MySQL 最大空闲连接数，默认 100
