@@ -1,7 +1,10 @@
 package apiserver
 
 import (
+	"encoding/json"
 	"fmt"
+	
+	"github.com/spf13/viper"
 
 	genericoptions "github.com/FoBoHuang/fastgo/pkg/options"
 )
@@ -24,8 +27,12 @@ func (cfg *Config) NewServer() (*Server, error) {
 
 // Run 运行应用.
 func (s *Server) Run() error {
-	fmt.Printf("Read MySQL host from config: %s\n", s.cfg.MySQLOptions.Addr)
+	// fmt.Printf("Read MySQL host from config: %s\n", s.cfg.MySQLOptions.Addr)
+	fmt.Printf("Read MySQL host from Viper: %s\n\n", viper.GetString("mysql.host"))
 	fmt.Printf("MySQL Server Start Success fobbb!!!\n")
+
+	jsonData, _ := json.MarshalIndent(s.cfg, "", "  ")
+	fmt.Println(string(jsonData))
 
 	select {} // 调用 select 语句，阻塞防止进程退出
 }
