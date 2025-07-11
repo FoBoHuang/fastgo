@@ -3,6 +3,7 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/spf13/viper"
 
@@ -27,9 +28,9 @@ func (cfg *Config) NewServer() (*Server, error) {
 
 // Run 运行应用.
 func (s *Server) Run() error {
-	// fmt.Printf("Read MySQL host from config: %s\n", s.cfg.MySQLOptions.Addr)
-	fmt.Printf("Read MySQL host from Viper: %s\n", viper.GetString("mysql.host"))
-	fmt.Printf("MySQL Server Start Success fobbb!!!\n")
+	slog.Info("Read MySQL host from config", "mysql.addr", s.cfg.MySQLOptions.Addr)
+	slog.Info("Read MySQL host from config(Viper)", "mysql.addr", viper.GetString("mysql.addr"))
+	slog.Info("MySQL Server Start Success fobbb!!!")
 
 	jsonData, _ := json.MarshalIndent(s.cfg, "", "  ")
 	fmt.Println(string(jsonData))
