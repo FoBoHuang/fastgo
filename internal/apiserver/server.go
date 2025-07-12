@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	mw "github.com/FoBoHuang/fastgo/internal/pkg/middleware"
 	genericoptions "github.com/FoBoHuang/fastgo/pkg/options"
 )
 
@@ -27,6 +28,10 @@ type Server struct {
 func (cfg *Config) NewServer() (*Server, error) {
 	// 创建 Gin 引擎
 	engine := gin.New()
+
+	// gin.Recovery() 中间件，用来捕获任何 panic，并恢复
+	mws := []gin.HandlerFunc{gin.Recovery(), mw.NoCache, mw.Cors, mw.RequestID()}
+	engine.Use(mws...)
 
 	// 注册 404 Handler.
 	engine.NoRoute(func(c *gin.Context) {
