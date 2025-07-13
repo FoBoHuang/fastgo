@@ -1,121 +1,45 @@
-package post
+package biz
 
-//go:generate mockgen -destination mock_post.go -package post github.com/onexstack/fastgo/internal/apiserver/biz/v1/post PostBiz
+//go:generate mockgen -destination mock_biz.go -package biz github.com/onexstack/fastgo/internal/apiserver/biz IBiz
 
 import (
-	"context"
+	postv1 "github.com/FoBoHuang/fastgo/internal/apiserver/biz/v1/post"
+	userv1 "github.com/FoBoHuang/fastgo/internal/apiserver/biz/v1/user"
 
-	"github.com/jinzhu/copier"
-	"github.com/onexstack/onexstack/pkg/store/where"
-
-	"github.com/FoBoHuang/fastgo/internal/apiserver/model"
-	"github.com/FoBoHuang/fastgo/internal/apiserver/pkg/conversion"
+	// Post V2 版本（未实现，仅展示用）
+	// postv2 "github.com/FoBoHuang/fastgo/internal/apiserver/biz/v2/post".
 	"github.com/FoBoHuang/fastgo/internal/apiserver/store"
-	"github.com/FoBoHuang/fastgo/internal/pkg/contextx"
-	apiv1 "github.com/FoBoHuang/fastgo/pkg/api/apiserver/v1"
 )
 
-// PostBiz 定义处理帖子请求所需的方法.
-type PostBiz interface {
-	Create(ctx context.Context, rq *apiv1.CreatePostRequest) (*apiv1.CreatePostResponse, error)
-	Update(ctx context.Context, rq *apiv1.UpdatePostRequest) (*apiv1.UpdatePostResponse, error)
-	Delete(ctx context.Context, rq *apiv1.DeletePostRequest) (*apiv1.DeletePostResponse, error)
-	Get(ctx context.Context, rq *apiv1.GetPostRequest) (*apiv1.GetPostResponse, error)
-	List(ctx context.Context, rq *apiv1.ListPostRequest) (*apiv1.ListPostResponse, error)
-
-	PostExpansion
+// IBiz 定义了业务层需要实现的方法.
+type IBiz interface {
+	// 获取用户业务接口.
+	UserV1() userv1.UserBiz
+	// 获取帖子业务接口.
+	PostV1() postv1.PostBiz
+	// 获取帖子业务接口（V2版本）.
+	// PostV2() post.PostBiz
 }
 
-// PostExpansion 定义额外的帖子操作方法.
-type PostExpansion interface{}
-
-// postBiz 是 PostBiz 接口的实现.
-type postBiz struct {
+// biz 是 IBiz 的一个具体实现.
+type biz struct {
 	store store.IStore
 }
 
-// 确保 postBiz 实现了 PostBiz 接口.
-var _ PostBiz = (*postBiz)(nil)
+// 确保 biz 实现了 IBiz 接口.
+var _ IBiz = (*biz)(nil)
 
-// New 创建 postBiz 的实例.
-func New(store store.IStore) *postBiz {
-	return &postBiz{store: store}
+// NewBiz 创建一个 IBiz 类型的实例.
+func NewBiz(store store.IStore) *biz {
+	return &biz{store: store}
 }
 
-// Create 实现 PostBiz 接口中的 Create 方法.
-func (b *postBiz) Create(ctx context.Context, rq *apiv1.CreatePostRequest) (*apiv1.CreatePostResponse, error) {
-	var postM model.Post
-	_ = copier.Copy(&postM, rq)
-	postM.UserID = contextx.UserID(ctx)
-
-	if err := b.store.Post().Create(ctx, &postM); err != nil {
-		return nil, err
-	}
-
-	return &apiv1.CreatePostResponse{PostID: postM.PostID}, nil
+// UserV1 返回一个实现了 UserBiz 接口的实例.
+func (b *biz) UserV1() userv1.UserBiz {
+	return userv1.New(b.store)
 }
 
-// Update 实现 PostBiz 接口中的 Update 方法.
-func (b *postBiz) Update(ctx context.Context, rq *apiv1.UpdatePostRequest) (*apiv1.UpdatePostResponse, error) {
-	whr := where.F("userID", contextx.UserID(ctx), "postID", rq.PostID)
-	postM, err := b.store.Post().Get(ctx, whr)
-	if err != nil {
-		return nil, err
-	}
-
-	if rq.Title != nil {
-		postM.Title = *rq.Title
-	}
-
-	if rq.Content != nil {
-		postM.Content = *rq.Content
-	}
-
-	if err := b.store.Post().Update(ctx, postM); err != nil {
-		return nil, err
-	}
-
-	return &apiv1.UpdatePostResponse{}, nil
-}
-
-// Delete 实现 PostBiz 接口中的 Delete 方法.
-func (b *postBiz) Delete(ctx context.Context, rq *apiv1.DeletePostRequest) (*apiv1.DeletePostResponse, error) {
-	whr := where.F("userID", contextx.UserID(ctx), "postID", rq.PostIDs)
-	if err := b.store.Post().Delete(ctx, whr); err != nil {
-		return nil, err
-	}
-
-	return &apiv1.DeletePostResponse{}, nil
-}
-
-// Get 实现 PostBiz 接口中的 Get 方法.
-func (b *postBiz) Get(ctx context.Context, rq *apiv1.GetPostRequest) (*apiv1.GetPostResponse, error) {
-	whr := where.F("userID", contextx.UserID(ctx), "postID", rq.PostID)
-	postM, err := b.store.Post().Get(ctx, whr)
-	if err != nil {
-		return nil, err
-	}
-
-	return &apiv1.GetPostResponse{Post: conversion.PostodelToPostV1(postM)}, nil
-}
-
-// List 实现 PostBiz 接口中的 List 方法.
-func (b *postBiz) List(ctx context.Context, rq *apiv1.ListPostRequest) (*apiv1.ListPostResponse, error) {
-	whr := where.F("userID", contextx.UserID(ctx)).P(int(rq.Offset), int(rq.Limit))
-	if rq.Title != nil {
-		whr = whr.Q("title like ?", "%"+*rq.Title+"%")
-	}
-
-	count, postList, err := b.store.Post().List(ctx, whr)
-	if err != nil {
-		return nil, err
-	}
-
-	posts := make([]*apiv1.Post, 0, len(postList))
-	for _, post := range postList {
-		converted := conversion.PostodelToPostV1(post)
-		posts = append(posts, converted)
-	}
-
-	return &apiv1.ListPostResponse{TotalCount: count, Posts: posts}, nil
+// PostV1 返回一个实现了 PostBiz 接口的实例.
+func (b *biz) PostV1() postv1.PostBiz {
+	return postv1.New(b.store)
 }
